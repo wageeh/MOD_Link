@@ -1,0 +1,130 @@
+<?php
+
+
+/**
+ * Implements hook_cron().
+
+ */
+
+use Drupal\Component\Serialization\Json;
+use Drupal\node\Entity\Node;
+
+function cron_weeklyfetch_cron() {
+  // We access our configuration.
+  $cron_config = \Drupal::configFactory()->getEditable('cron_weeklyfetch.settings');
+  // Default to an hourly interval. Of course, cron has to be running at least
+  // hourly for this to work.
+  $interval = $cron_config->get('interval');
+  $interval = !empty($interval) ? $interval : 3600;
+
+  // We usually don't want to act every time cron runs (which could be every
+  // minute) so keep a time for the next run in the site state.
+  $next_execution = \Drupal::state()->get('cron_weeklyfetch.next_execution');
+  $next_execution = !empty($next_execution) ? $next_execution : 0;
+  if (REQUEST_TIME >= $next_execution) {
+
+    // calling the weekly api and fetching data
+    $url = "http://localhost:8090/interior/api/12-12-12";
+
+    $client = curl_init($url);
+    curl_setopt($client,CURLOPT_RETURNTRANSFER,true);
+    $response = curl_exec($client);
+
+    $decoded = Json::decode($response);
+
+    if (!is_null($decoded)){
+        persist_candidates($decoded["data"]);
+    }else{
+      \Drupal::messenger()->addMessage(t('Empty or null object'));
+    }
+    
+    \Drupal::logger('cron_weeklyfetch')->notice('cron_weeklyfetch ran');
+    if (\Drupal::state()->get('cron_weeklyfetch_show_status_message')) {
+      \Drupal::messenger()->addMessage(t('cron_weeklyfetch executed at %time', ['%time' => date_iso8601(REQUEST_TIME)]));
+      \Drupal::messenger()->addMessage(t('cron_weeklyfetch.next_execution at %time', ['%time' => date_iso8601(REQUEST_TIME + $interval)]));
+      \Drupal::state()->set('cron_weeklyfetch_show_status_message', FALSE);
+    }
+    \Drupal::state()->set('cron_weeklyfetch.next_execution', REQUEST_TIME + $interval);
+
+  }
+}
+
+function persist_candidates($nodelist)
+{
+    foreach ($nodelist as $candidate)
+    {
+      \Drupal::messenger()->addMessage(t($candidate['name']));
+      $hascriminalrecord = has_criminal_record($candidate['n_id']);
+      $education = get_candidate_education($candidate['n_id']);
+      $social = get_candidate_social($candidate['n_id']);
+      $node = \Drupal::entityTypeManager()->getStorage('node')->create(
+        [
+          'type' => 'candidate',
+          'title' =>  $candidate['name'],
+          'field_national_id' => $candidate['n_id'],
+          'field_address' => $candidate['city'],
+          'field_has_criminal_record' => $hascriminalrecord,
+          'field_has_completed_education' => $education['finished'],
+          'field_education' => $education['major'],
+          'field_has_brothers' => $social['hasbrothers'],
+          'field_has_a_living_father' => $social['hasfather'],
+          'field_age' => $social['age']
+        ]);
+      if ($education['finished'] &&
+          $social['hasbrothers'] &&
+          $social['hasfather'] &&
+          $social['age']<30) {
+        $node->save();
+      }
+    }
+}
+
+function has_criminal_record($nid){
+  $url = "http://localhost:8090/interior/api/".$nid;
+  $decoded  = get_decoded_object_from_url($url);
+
+  if ( !is_null($decoded) && $decoded['res'] == 0)
+  {
+    return false;
+  }
+  return true;
+}
+
+function get_candidate_education($nid)
+{
+  $url = "http://localhost:8090/education/api/" . $nid;
+  $decoded = get_decoded_object_from_url($url);
+  if (!is_null($decoded) && $decoded['res'] == 1) {
+    $education['finished'] = (bool)$decoded['res'];
+    $education['major'] = $decoded['response_desc'];
+  } else {
+    $education['finished'] = false;
+    $education['major'] = null;
+  }
+  return $education;
+}
+
+function get_candidate_social($nid){
+  $url = "http://localhost:8090/social/api/".$nid;
+  $decoded  = get_decoded_object_from_url($url);
+  if ( !is_null($decoded) && $decoded['res'] == 0) {
+    $social['age'] = $decoded['data']['age'];
+    $social['hasbrothers'] = (bool)$decoded['data']['brotherstatus'];
+    $social['hasfather'] = (bool)$decoded['data']['dadstatus'];
+    return $social;
+  }
+}
+
+function  get_decoded_object_from_url($url)
+{
+  $client = curl_init($url);
+  curl_setopt($client,CURLOPT_RETURNTRANSFER,true);
+  $response = curl_exec($client);
+
+  $decoded = Json::decode($response);
+  return $decoded;
+}
+
+/**
+ * @} End of "defgroup cron_weeklyfetch".
+ */

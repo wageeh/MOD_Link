@@ -1,0 +1,6 @@
+﻿RewriteEngine On    # Turn on the rewriting engine
+
+# for number only for national id
+RewriteRule ^api/([0-9]*)$ api.php?n_id=$1 [NC,L]
+# for date format
+RewriteRule ^api/(([0-9]*)-([0-9]+)-([0-9]+))$ api.php?date=$1 [NC,L]

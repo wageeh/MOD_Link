@@ -1,0 +1,7 @@
+cron_weeklyfetch.description:
+  path: '/MOD/cron-weeklyfetch'
+  defaults:
+    _form: '\Drupal\cron_weeklyfetch\Form\CronWeeklyFetchForm'
+    _title: 'Cron Weekly Fetch'
+  requirements:
+    _permission: 'access content'

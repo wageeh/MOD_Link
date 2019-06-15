@@ -1,0 +1,4 @@
+# Default form values for \Drupal\cron_example\Form\CronWeeklyFetchForm.
+# @see examples/cron_example/config/schema/cron_weeklyfetch.schema.yml
+# @see \Drupal\cron_example\Form\CronWeeklyFetchForm::getEditableConfigNames()
+interval: 300

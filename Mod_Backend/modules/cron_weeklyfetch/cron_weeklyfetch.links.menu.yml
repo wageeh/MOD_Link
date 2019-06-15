@@ -1,0 +1,3 @@
+cron_weeklyfetch.description:
+  title: Cron Weekly Fetch
+  route_name: cron_weeklyfetch.description

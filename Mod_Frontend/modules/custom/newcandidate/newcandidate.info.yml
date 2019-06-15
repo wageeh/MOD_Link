@@ -1,0 +1,5 @@
+name: Register New Candidate
+type: module
+Description: Check if the user eligible to register based on his National Id
+package: MOD modules
+core: 8.x

@@ -1,0 +1,34 @@
+<?php
+
+use Drupal\Component\Serialization\Json;
+use Drupal\Core\Form\FormStateInterface;
+
+/**
+ * Implements hook_form_alter().
+ */
+function newcandidate_form_alter(&$form, FormStateInterface $form_state, $form_id)
+{
+  if ($form_id === 'user_register_form') {
+    $userid = $form_state->getUserInput()['field_national_id'][0]['value'];
+    if (!is_null($userid)) {
+      $url = 'http://mod.backend.dd:8083/api/candidates?n_id=' . $userid;
+      $decoded = get_decoded_object_from_url($url);
+      if (!is_null($decoded) && $decoded[0]['field_national_id'] == $userid) {
+        //update the user entity and set it to be able to login
+      }else{
+        $form_state->setErrorByName('field_national_id', t('National is is not in our database, please choose a different one'));
+        //return false;
+      }
+    }
+  }
+}
+
+function  get_decoded_object_from_url($url)
+{
+  $client = curl_init($url);
+  curl_setopt($client,CURLOPT_RETURNTRANSFER,true);
+  $response = curl_exec($client);
+
+  $decoded = Json::decode($response);
+  return $decoded;
+}
